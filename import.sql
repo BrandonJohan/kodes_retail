@@ -52,10 +52,11 @@ WHERE CustomerPhone = '';
 
 SET SQL_SAFE_UPDATES = 1;
 
-INSERT INTO Product (ProductCode, ProductDesc, ProductUnitPrice, ProductType)
+INSERT INTO Product (ProductCode, ProductDesc, ProductUnitPrice, ProductQuantity, ProductType)
 SELECT stock_code,
        MAX(description),
        MAX(unit_price),
+       CASE WHEN MAX(product_type) = 'PRODUCT' THEN 1000 ELSE 0 END,
        MAX(product_type)
 FROM staging_retail
 GROUP BY stock_code;
