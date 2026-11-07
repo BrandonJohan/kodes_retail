@@ -21,7 +21,7 @@ CREATE TABLE Product (
     ProductCode VARCHAR(20) PRIMARY KEY,
     ProductDesc VARCHAR(255) NOT NULL,
     ProductUnitPrice DECIMAL(10,3) NOT NULL DEFAULT 0,
-    ProductQuantity INT NOT NULL DEFAULT 100, -- default set to 0 for testing purposes
+    ProductQuantity INT NOT NULL DEFAULT 0,
     ProductType VARCHAR(15) NOT NULL DEFAULT 'PRODUCT',
 
     CONSTRAINT chk_product_price CHECK (ProductUnitPrice >= 0),
@@ -50,12 +50,10 @@ CREATE TABLE Invoice (
 );
 
 CREATE TABLE InvoiceDetail (
-    InvoiceDetailID INT AUTO_INCREMENT PRIMARY KEY,
     InvoiceID VARCHAR(10) NOT NULL,
     ProductCode VARCHAR(20) NOT NULL,
     Quantity INT NOT NULL,
     UnitPrice DECIMAL(10,3) NOT NULL,
-
 
     CONSTRAINT chk_quantity CHECK (Quantity != 0),
     CONSTRAINT chk_unit_price CHECK (UnitPrice >= 0),
