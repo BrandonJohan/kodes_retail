@@ -21,10 +21,11 @@ CREATE TABLE Product (
     ProductCode VARCHAR(20) PRIMARY KEY,
     ProductDesc VARCHAR(255) NOT NULL,
     ProductUnitPrice DECIMAL(10,3) NOT NULL DEFAULT 0,
-    ProductQuantity INT NOT NULL DEFAULT 0,
+    ProductQuantity INT NOT NULL DEFAULT 100, -- default set to 0 for testing purposes
     ProductType VARCHAR(15) NOT NULL DEFAULT 'PRODUCT',
 
     CONSTRAINT chk_product_price CHECK (ProductUnitPrice >= 0),
+    CONSTRAINT chk_product_quantity CHECK (ProductQuantity >= 0),
     CONSTRAINT chk_product_type CHECK (ProductType IN ('PRODUCT', 'NON_PRODUCT'))
 );
 

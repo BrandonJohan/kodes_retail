@@ -33,30 +33,28 @@ GROUP BY c.CountryID, c.CountryName
 ORDER BY TotalRevenue DESC;
 
 -- Query 4
-WITH CustomerSpend AS (
-   SELECT
-      cu.CustomerID, 
-      cu.CustomerName, 
-      cu.CustomerPhone, 
-      cu.CustomerEmail, 
-      SUM(d.Quantity * d.UnitPrice) AS TotalSpend
-   FROM Customer cu
-   JOIN Invoice i ON i.CustomerID = cu.CustomerID
-   JOIN InvoiceDetail d ON d.InvoiceID = i.InvoiceID
-   WHERE i.InvoiceStatus = 'Completed' AND i.InvoiceType = 'SALE'
-   GROUP BY cu.CustomerID, cu.CustomerName, cu.CustomerPhone, cu.CustomerEmail
+SELECT
+   cu.CustomerID,
+   cu.CustomerName,
+   cu.CustomerPhone,
+   cu.CustomerEmail,
+   ROUND(SUM(d.Quantity * d.UnitPrice), 2) AS TotalSpend
+FROM Customer cu
+JOIN Invoice i ON i.CustomerID = cu.CustomerID
+JOIN InvoiceDetail d ON d.InvoiceID = i.InvoiceID
+WHERE i.InvoiceStatus = 'Completed' AND i.InvoiceType = 'SALE'
+GROUP BY cu.CustomerID, cu.CustomerName, cu.CustomerPhone, cu.CustomerEmail
+HAVING SUM(d.Quantity * d.UnitPrice) > (
+   SELECT AVG(CustomerTotal)
+   FROM (
+      SELECT SUM(d2.Quantity * d2.UnitPrice) AS CustomerTotal
+      FROM Invoice i2
+      JOIN InvoiceDetail d2 ON d2.InvoiceID = i2.InvoiceID
+      WHERE i2.InvoiceStatus = 'Completed' AND i2.InvoiceType = 'SALE'
+      GROUP BY i2.CustomerID
+   ) AS SpendPerCustomer
 )
-
-SELECT 
-   CustomerID, 
-   CustomerName, 
-   CustomerPhone, 
-   CustomerEmail, 
-   ROUND(TotalSpend, 2) AS TotalSpend
-FROM CustomerSpend
-WHERE TotalSpend > (SELECT AVG(TotalSpend) FROM CustomerSpend) -- nested subquery
 ORDER BY TotalSpend DESC;
-
 
 -- Query 5
 SELECT 

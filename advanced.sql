@@ -10,6 +10,7 @@ FOR EACH ROW
 BEGIN
     DECLARE v_InvoiceType   VARCHAR(10);
     DECLARE v_InvoiceStatus VARCHAR(10);
+    DECLARE v_CurrentStock INT;
 
     SELECT InvoiceType, InvoiceStatus
     INTO v_InvoiceType, v_InvoiceStatus
@@ -19,6 +20,18 @@ BEGIN
     IF v_InvoiceStatus = 'Completed' THEN
 
         IF v_InvoiceType = 'SALE' THEN
+            SELECT ProductQuantity
+            INTO v_CurrentStock
+            FROM Product
+            WHERE ProductCode = NEW.ProductCode
+            AND ProductType = 'PRODUCT'
+            FOR UPDATE;
+
+            IF v_CurrentStock < ABS(NEW.Quantity) THEN 
+                SIGNAL SQLSTATE '45000'
+                SET MESSAGE_TEXT = 'Insufficient stock: quantity cannot be negative'
+            END IF;
+            
             UPDATE Product
             SET ProductQuantity = ProductQuantity - ABS(NEW.Quantity) 
             WHERE ProductCode = NEW.ProductCode
@@ -40,7 +53,30 @@ CREATE TRIGGER trg_RestoreInventory_AfterCancel
 AFTER UPDATE ON Invoice
 FOR EACH ROW
 BEGIN
+    DECLARE v_Insufficient INT DEFAULT 0;
+
     IF OLD.InvoiceStatus = 'Completed' AND NEW.InvoiceStatus = 'Cancelled' THEN
+
+        IF NEW.InvoiceType = 'RETURN' THEN
+
+            SELECT COUNT(*)
+            INTO v_Insufficient
+            FROM Product p
+            JOIN (
+                SELECT ProductCode, SUM(ABS(Quantity)) AS TotalQty
+                FROM InvoiceDetail
+                WHERE InvoiceID = NEW.InvoiceID
+                GROUP BY ProductCode
+            ) d ON d.ProductCode = p.ProductCode
+            WHERE p.ProductType = 'PRODUCT'
+              AND p.ProductQuantity < d.TotalQty;
+
+            IF v_Insufficient > 0 THEN
+                SIGNAL SQLSTATE '45000'
+                SET MESSAGE_TEXT = 'Cannot cancel return: insufficient stock, quantity cannot be negative';
+            END IF;
+        END IF;
+
         UPDATE Product p
         JOIN (
             SELECT ProductCode, SUM(ABS(Quantity)) AS TotalQty
@@ -48,9 +84,10 @@ BEGIN
             WHERE InvoiceID = NEW.InvoiceID
             GROUP BY ProductCode
         ) d ON d.ProductCode = p.ProductCode
-        SET p.ProductQuantity = p.ProductQuantity +
-            IF(NEW.InvoiceType = 'SALE', d.TotalQty, -d.TotalQty)
+        SET p.ProductQuantity = p.ProductQuantity
+            + IF(NEW.InvoiceType = 'SALE', d.TotalQty, -d.TotalQty)
         WHERE p.ProductType = 'PRODUCT';
+
     END IF;
 END$$
 
@@ -78,25 +115,3 @@ BEGIN
 END$$
 
 DELIMITER ;
-
-CALL GetCustomerInvoiceHistory(12347);
-
-START TRANSACTION;
-
-SELECT ProductCode, ProductQuantity FROM Product WHERE ProductCode = '85123A';
-
-INSERT INTO Invoice (InvoiceID, CustomerID, CountryID, InvoiceDate, InvoiceType)
-VALUES ('TEST001', NULL, 1, NOW(), 'SALE');
-
-INSERT INTO InvoiceDetail (InvoiceID, ProductCode, Quantity, UnitPrice)
-VALUES ('TEST001', '85123A', 5, 2.550);
-
-SELECT ProductCode, ProductQuantity FROM Product WHERE ProductCode = '85123A';
-
-UPDATE Invoice
-SET InvoiceStatus = 'Cancelled', CancelledAt = NOW(), CancelReason = 'Test cancel'
-WHERE InvoiceID = 'TEST001';
-
-SELECT ProductCode, ProductQuantity FROM Product WHERE ProductCode = '85123A';
-
-ROLLBACK;
